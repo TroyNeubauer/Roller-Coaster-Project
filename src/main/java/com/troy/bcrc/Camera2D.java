@@ -34,11 +34,11 @@ public class Camera2D {
 		return y;
 	}
 
-	public double totalWidth() {
+	public double getWidth() {
 		return 2.0 * width;
 	}
 
-	public double totalHeight() {
+	public double getHeight() {
 		return 2.0 * height;
 	}
 
@@ -46,6 +46,10 @@ public class Camera2D {
 		double mult = Math.pow(2, -zoom);
 		width *= mult;
 		height *= mult;
+	}
+
+	public void makeAspectRatio(int width, int height) {
+		this.height = this.width / width * height;
 	}
 
 	public void move(double realX, double realY) {

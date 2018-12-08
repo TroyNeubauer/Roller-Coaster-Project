@@ -19,6 +19,8 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 	private static final double ZOOM_SENSITIVITY = 0.01;
 	private static final DecimalFormat df = new DecimalFormat("#.###");
 
+	private static final double MOVE_SPEED = 400.0;
+
 	public CoordinatePlane() {
 		this(0, 0, 8, 4.5);
 	}
@@ -30,7 +32,7 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 
 	public int pixelCountX(double xDistance) {
 		int pixelWidth = getWidth();
-		double pixelsPerUint = pixelWidth / camera.totalWidth();
+		double pixelsPerUint = pixelWidth / camera.getWidth();
 		if (Double.isFinite(pixelsPerUint)) {
 			long value = Math.round(pixelsPerUint * xDistance);
 			if (value > Integer.MAX_VALUE) {
@@ -46,7 +48,7 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 
 	public int pixelCountY(double yDistance) {
 		int pixelHeight = getHeight();
-		double pixelsPerUint = pixelHeight / camera.totalHeight();
+		double pixelsPerUint = pixelHeight / camera.getHeight();
 		if (Double.isFinite(pixelsPerUint)) {
 			long value = Math.round(pixelsPerUint * yDistance);
 			if (value > Integer.MAX_VALUE) {
@@ -68,11 +70,11 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 		return (int) Math.round(Maths.map(y, camera.getTop(), camera.getBottom(), 0, getHeight()));
 	}
 
-	public double getRealX(int px) {
+	public double getRealX(double px) {
 		return Maths.map(px, 0, getWidth(), camera.getLeft(), camera.getRight());
 	}
 
-	public double getRealY(int py) {
+	public double getRealY(double py) {
 		return Maths.map(py, 0, getHeight(), camera.getTop(), camera.getBottom());
 	}
 
@@ -80,7 +82,7 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		g.setColor(Color.BLACK);
-		//drawLines(g);
+		// drawLines(g);
 		drawPoints(g);
 		drawFunctions(g);
 
@@ -165,7 +167,7 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 	}
 
 	private void drawFunctions(Graphics g) {
-		PolynomialFunction function = new PolynomialFunction(new double[] { 2, 0, 6, 2, -1 });
+		PolynomialFunction function = new PolynomialFunction(new double[] { 0, 0, 0.5 });
 		drawFunction(function, Color.GREEN, g, 1);
 	}
 
@@ -173,12 +175,8 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 	public void mouseClicked(MouseEvent e) {
 	}
 
-	double ox, oy;
-
 	@Override
 	public void mousePressed(MouseEvent e) {
-		ox = getRealX(e.getX());
-		oy = getRealY(e.getY());
 	}
 
 	@Override
@@ -196,16 +194,10 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 	@Override
 	public void mouseWheelMoved(MouseWheelEvent e) {
 		camera.zoom(e.getWheelRotation() * ZOOM_SENSITIVITY);
-		repaint();
 	}
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
-		double nx = getRealX(e.getX()), ny = getRealY(e.getY());
-		camera.move(ox - nx, oy - ny);
-		repaint();
-		ox = nx;
-		oy = ny;
 	}
 
 	@Override
@@ -214,7 +206,48 @@ public class CoordinatePlane extends JPanel implements MouseInputListener, Mouse
 
 	@Override
 	public void keyTyped(KeyEvent e) {
-		System.out.println("typed");
+	}
+
+	double boost = 1.5;
+	boolean boostEnabled = false;
+
+	public void update(double delta) {
+		double x = 0.0, y = 0.0;
+		double unitsPerPX = camera.getWidth() / getWidth();
+		double unitsPerPY = camera.getHeight() / getHeight();
+		if (Keyboard.isKeyDown(KeyEvent.VK_W)) {
+			y += unitsPerPY * delta * MOVE_SPEED;
+		}
+		if (Keyboard.isKeyDown(KeyEvent.VK_S)) {
+			y -= unitsPerPY * delta * MOVE_SPEED;
+		}
+		if (Keyboard.isKeyDown(KeyEvent.VK_A)) {
+			x -= unitsPerPX * delta * MOVE_SPEED;
+		}
+		if (Keyboard.isKeyDown(KeyEvent.VK_D)) {
+			x += unitsPerPX * delta * MOVE_SPEED;
+		}
+		if (Keyboard.isKeyDown(KeyEvent.VK_R)) {
+			camera.makeAspectRatio(getWidth(), getHeight());
+		}
+		if (Keyboard.isKeyDown(KeyEvent.VK_SHIFT)) {
+			boost += delta;
+			boostEnabled = true;
+		} else {
+			if (x != 0.0 || y != 0.0) {
+				boost -= delta;
+			} else {
+				boost = 1.5;
+				boostEnabled = false;
+			}
+		}
+		boost = Maths.clamp(1.5, 10.0, boost);
+		if(boostEnabled) {
+			x *= boost;
+			y *= boost;
+		}
+		camera.move(x, y);
+		repaint();
 	}
 
 	@Override

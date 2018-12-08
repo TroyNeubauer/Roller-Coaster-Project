@@ -28,7 +28,7 @@ public class Main {
 		while (frame.isDisplayable()) {
 			long end = MiscUtil.sleepUntil(nextUpdate);
 			double delta = (end - last) / 1_000_000_000.0;
-			
+			plane.update(delta);
 
 			nextUpdate += NANOS_PER_UPDATE;
 			last = end;
