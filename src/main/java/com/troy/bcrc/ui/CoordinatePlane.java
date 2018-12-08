@@ -2,36 +2,35 @@ package com.troy.bcrc.ui;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.text.DecimalFormat;
 
 import javax.swing.JPanel;
+import javax.swing.event.MouseInputListener;
 
 import org.apache.commons.math3.analysis.UnivariateFunction;
 import org.apache.commons.math3.analysis.polynomials.PolynomialFunction;
 
-import com.troy.bcrc.Maths;
+import com.troy.bcrc.*;
 
-public class CoordinatePlane extends JPanel implements MouseListener, MouseWheelListener {
-	private double left, right, top, bottom;
+public class CoordinatePlane extends JPanel implements MouseInputListener, MouseWheelListener, KeyListener {
+	private Camera2D camera;
 
 	private static final int MIN_PX = 2;
 	private static final double ZOOM_SENSITIVITY = 0.01;
+	private static final DecimalFormat df = new DecimalFormat("#.###");
 
 	public CoordinatePlane() {
-		this(-10, 10, 7, -7);
+		this(0, 0, 8, 4.5);
 	}
 
-	public CoordinatePlane(double left, double right, double top, double bottom) {
+	public CoordinatePlane(double x, double y, double width, double height) {
 		setBackground(Color.WHITE);
-		this.left = left;
-		this.right = right;
-		this.top = top;
-		this.bottom = bottom;
+		this.camera = new Camera2D(x, y, width, height);
 	}
 
 	public int pixelCountX(double xDistance) {
 		int pixelWidth = getWidth();
-		double currentUnits = right - left;
-		double pixelsPerUint = pixelWidth / currentUnits;
+		double pixelsPerUint = pixelWidth / camera.totalWidth();
 		if (Double.isFinite(pixelsPerUint)) {
 			long value = Math.round(pixelsPerUint * xDistance);
 			if (value > Integer.MAX_VALUE) {
@@ -47,8 +46,7 @@ public class CoordinatePlane extends JPanel implements MouseListener, MouseWheel
 
 	public int pixelCountY(double yDistance) {
 		int pixelHeight = getHeight();
-		double currentUnits = top - bottom;
-		double pixelsPerUint = pixelHeight / currentUnits;
+		double pixelsPerUint = pixelHeight / camera.totalHeight();
 		if (Double.isFinite(pixelsPerUint)) {
 			long value = Math.round(pixelsPerUint * yDistance);
 			if (value > Integer.MAX_VALUE) {
@@ -63,26 +61,26 @@ public class CoordinatePlane extends JPanel implements MouseListener, MouseWheel
 	}
 
 	public int getPixelX(double x) {
-		return (int) Math.round(Maths.map(x, left, right, 0, getWidth()));
+		return (int) Math.round(Maths.map(x, camera.getLeft(), camera.getRight(), 0, getWidth()));
 	}
 
 	public int getPixelY(double y) {
-		return (int) Math.round(Maths.map(y, top, bottom, 0, getHeight()));
+		return (int) Math.round(Maths.map(y, camera.getTop(), camera.getBottom(), 0, getHeight()));
 	}
 
 	public double getRealX(int px) {
-		return Maths.map(px, 0, getWidth(), left, right);
+		return Maths.map(px, 0, getWidth(), camera.getLeft(), camera.getRight());
 	}
 
 	public double getRealY(int py) {
-		return Maths.map(py, 0, getHeight(), top, bottom);
+		return Maths.map(py, 0, getHeight(), camera.getTop(), camera.getBottom());
 	}
 
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
 		g.setColor(Color.BLACK);
-		drawLines(g);
+		//drawLines(g);
 		drawPoints(g);
 		drawFunctions(g);
 
@@ -94,32 +92,26 @@ public class CoordinatePlane extends JPanel implements MouseListener, MouseWheel
 		int exp = doIterationX(-30);
 		double step = Math.pow(10, exp);
 		g.setColor(light);
-		for (double x = left; x <= right; x += step) {
+		for (double x = Math.floor(camera.getLeft() / step); x <= camera.getRight(); x += step) {
+			if (x > camera.getRight())
+				break;
 			int px = getPixelX(x);
 			g.drawLine(px, 0, px, getHeight());
-		}
-		exp = doIterationX(exp);
-		step = Math.pow(10, exp);
-		g.setColor(dark);
-		for (double x = left; x <= right; x += step) {
-			int px = getPixelX(x);
-			g.drawLine(px, 0, px, getHeight());
+			drawLabelX(px, x, g);
+
 		}
 
-		exp = doIterationY(-30);
-		step = Math.pow(10, exp);
-		g.setColor(light);
-		for (double y = bottom; y <= top; y += step) {
-			int py = getPixelY(y);
-			g.drawLine(0, py, getWidth(), py);
+	}
+
+	private void drawLabelX(int px, double label, Graphics g) {
+		Color o = g.getColor();
+		g.setColor(Color.BLACK);
+		int py = getPixelY(camera.getCenterY());
+		if (py < -10 || py > getHeight()) {
+			py = 2;
 		}
-		exp = doIterationX(exp);
-		step = Math.pow(10, exp);
-		g.setColor(dark);
-		for (double y = bottom; y <= top; y += step) {
-			int py = getPixelY(y);
-			g.drawLine(0, py, getWidth(), py);
-		}
+		g.drawString(df.format(label), px, py);
+		g.setColor(o);
 	}
 
 	private int doIterationX(int exp) {
@@ -169,20 +161,6 @@ public class CoordinatePlane extends JPanel implements MouseListener, MouseWheel
 		}
 	}
 
-	private void zoom(int count) {
-		System.out.println("before " + left);
-		double cx = (left + right) / 2.0;
-		double cy = (top + bottom) / 2.0;
-		for (int i = 0; i < Math.abs(count); i++) {
-			
-			left += ZOOM_SENSITIVITY * (count < 0 ? -1 : +1) * Math.abs(cx - left);
-			right += ZOOM_SENSITIVITY * (count < 0 ? -1 : +1) * Math.abs(cx - right);
-			top += ZOOM_SENSITIVITY * (count < 0 ? -1 : +1) * Math.abs(cx - top);
-			bottom += ZOOM_SENSITIVITY * (count < 0 ? -1 : +1) * Math.abs(cx - bottom);
-		}
-		System.out.println("after " + left);
-	}
-
 	private void drawPoints(Graphics g) {
 	}
 
@@ -195,11 +173,12 @@ public class CoordinatePlane extends JPanel implements MouseListener, MouseWheel
 	public void mouseClicked(MouseEvent e) {
 	}
 
+	double ox, oy;
+
 	@Override
 	public void mousePressed(MouseEvent e) {
-		zoom(1);
-		System.out.println("press");
-		repaint();
+		ox = getRealX(e.getX());
+		oy = getRealY(e.getY());
 	}
 
 	@Override
@@ -216,6 +195,33 @@ public class CoordinatePlane extends JPanel implements MouseListener, MouseWheel
 
 	@Override
 	public void mouseWheelMoved(MouseWheelEvent e) {
-		System.out.println(e.getWheelRotation());
+		camera.zoom(e.getWheelRotation() * ZOOM_SENSITIVITY);
+		repaint();
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent e) {
+		double nx = getRealX(e.getX()), ny = getRealY(e.getY());
+		camera.move(ox - nx, oy - ny);
+		repaint();
+		ox = nx;
+		oy = ny;
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent e) {
+	}
+
+	@Override
+	public void keyTyped(KeyEvent e) {
+		System.out.println("typed");
+	}
+
+	@Override
+	public void keyPressed(KeyEvent e) {
+	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {
 	}
 }

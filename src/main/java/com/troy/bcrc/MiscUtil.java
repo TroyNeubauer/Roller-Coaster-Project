@@ -356,6 +356,28 @@ public class MiscUtil {
 		stream.close();
 		return data;
 	}
+	
+	public static String addCommas(long number, int base) {
+		String string = Long.toString(number, base);
+		if (string.length() < 4)
+			return string;
+
+		char[] chars = new char[((string.length() - 1) / 3) + string.length()];
+		int count = 0;
+		int indexInString = string.length() - 1;
+		for (int i = chars.length - 1; i >= 0; i--) {
+			if (count == 3) {
+				chars[i] = ',';
+				count = 0;
+			} else {
+				count++;
+				chars[i] = string.charAt(indexInString);
+				indexInString--;
+			}
+		}
+
+		return new String(chars);
+	}
 
 	/**
 	 * Reads the all the available bytes from the desired input stream
@@ -669,5 +691,24 @@ public class MiscUtil {
 		} catch (InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	public static long sleepUntil(long nextUpdate) {
+		long now = System.nanoTime();
+		if (now > nextUpdate)
+			return now;
+		long millis = (nextUpdate - now) / 1_000_000;
+		if (millis != 0) {
+			try {
+				Thread.sleep(millis);
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+		}
+		now = System.nanoTime();
+		while(now < nextUpdate) {
+			now = System.nanoTime();
+		}
+		return now;
 	}
 }
